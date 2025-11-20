@@ -1,28 +1,33 @@
 import { NextResponse, type NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
+import { verifyJwtToken } from "./app/lib/utils";
+
 const protectedRoutes = ["/"];
+const authRoutes = ["/login"];
 
 export async function proxy(request: NextRequest) {
-  console.log("request ==> ", request.nextUrl);
+  // console.log("request ==> ", request.nextUrl);
 
   const loginURL = request.nextUrl.clone();
   loginURL.pathname = "/login";
+  const HomeURL = request.nextUrl.clone();
+  HomeURL.pathname = "/";
 
-  if (protectedRoutes.includes(request.nextUrl.pathname)) {
-    const token = request.cookies.get("session_token");
-    if (!request.cookies.has("session_token")) {
-      return NextResponse.redirect(loginURL);
-    }
+  const isRequestingProtectedRoutes = protectedRoutes.includes(
+    request.nextUrl.pathname
+  );
+  const isRequestingAuthRoutes = authRoutes.includes(request.nextUrl.pathname);
 
-    if (!token?.value) {
-      return NextResponse.redirect(loginURL);
-    }
+  const token = request.cookies.get("session_token");
+  const tokenValue = token ? token.value : null;
 
-    jwt.verify(token.value, "OPWDER3456IOPPP", (err, decoded) => {
-      if (err) {
-        return NextResponse.redirect(loginURL);
-      }
-    });
+  if (!tokenValue && isRequestingProtectedRoutes) {
+    return NextResponse.redirect(loginURL);
+  }
+
+  const decodedUserInfo = verifyJwtToken(tokenValue);
+
+  if (isRequestingAuthRoutes && decodedUserInfo) {
+    return NextResponse.redirect(HomeURL);
   }
 
   return NextResponse.next({
